@@ -44,8 +44,8 @@ export type DietPlan = z.infer<typeof PlanSchema>;
 export const generateDietPlan = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => DietInput.parse(data))
   .handler(async ({ data }): Promise<{ plan: DietPlan | null; error?: string }> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) return { plan: null, error: "AI is not configured." };
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return { plan: null, error: "AI is not configured. Please add GROQ_API_KEY." };
 
     // Pull candidate regional foods to ground the model.
     let foodContext = "";
@@ -67,9 +67,15 @@ export const generateDietPlan = createServerFn({ method: "POST" })
 
     try {
       const { generateObject } = await import("ai");
-      const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-      const gateway = createLovableAiGatewayProvider(key);
-      const model = gateway("google/gemini-3-flash-preview");
+      const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
+      const groq = createOpenAICompatible({
+        name: "groq",
+        baseURL: "https://api.groq.com/openai/v1",
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+        },
+      });
+      const model = groq("llama-3.3-70b-versatile");
 
       const prompt = `You are an expert Indian dietitian. Build ONE realistic full-day meal plan.
 
